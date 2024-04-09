@@ -17,7 +17,7 @@ def train():
     device = torch.device("cuda")
     n_epoch = 1
     batch_size = 3
-    image_size = (32, 128, 128)
+    image_size = (64, 384, 384)
     num_frames = 11
 
     # DDPM hyperparameters
