@@ -1,17 +1,119 @@
 import os
+from typing import List
+import nibabel as nib
+import numpy as np
 
-# Path to the directory containing patient folders
-root_dir = '/media/7tb_encrypted/julians_project/anon_images_updated/'
 
-# Function to count folders within each patient's folder
-def count_folders_per_patient(root_dir):
-    patients = os.listdir(root_dir)
-    for patient_id in patients:
-        patient_folder = os.path.join(root_dir, patient_id)
-        if os.path.isdir(patient_folder):
-            num_folders = len([name for name in os.listdir(patient_folder) if os.path.isdir(os.path.join(patient_folder, name))])
-            if num_folders > 1: 
-                print(f"Patient {patient_id}: {num_folders} folders")
+DATA_DIR = "/media/7tb_encrypted/maltes_project"
+PROJECT_DIR = "/media/7tb_encrypted/adriannas_project"
+REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
+MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
+IMG_SHAPE = (384, 384, 64)
 
-# Call the function with the root directory path
-count_folders_per_patient(root_dir)
+def extract_id(file_name: str) -> int:
+    """
+    Extracts id from file name (cbct<ID>_<TIMESTEP>.nii.gz)
+    """
+    start_index = file_name.find("cbct")
+    end_index = file_name.find("_", start_index)
+    # Extract the substring between 'cbct' and '_'
+    substring = file_name[start_index + len("cbct") : end_index]
+    return int(substring)
+
+
+def extract_timestep(input_string: str) -> int:
+    """
+    Extracts timestep from file name (cbct<ID>_<TIMESTEP>.nii.gz)
+    """
+    start_index = input_string.find("_")
+    end_index = input_string.find(".nii", start_index)
+    # Extract the substring between '_' and '.nii'
+    substring = input_string[start_index + len("_") : end_index]
+    return int(substring)
+
+
+def get_sorted_unique_list_of_files(folder_path: str) -> List[str]:
+    """
+    This function gets all cbct files from folder and sorts them by id.
+    In case there are 2 files with the same id, it takes the one with smaller timestep.
+    """
+    cbct_files = [f for f in os.listdir(folder_path) if f.startswith("cbct") and f.endswith(".nii.gz")]
+    sorted_filenames = sorted(cbct_files, key=extract_id)
+    unique_files = {}
+    for filename in sorted_filenames:
+        idx = extract_id(filename)
+        timestep = extract_timestep(filename)
+        if idx not in unique_files:
+            unique_files[idx] = filename
+        else:
+            if timestep < extract_timestep(unique_files[idx]):
+                unique_files[idx] = filename
+    return list(unique_files.values())
+
+
+def get_correct_files_in_folder(folder_path: str) -> List[str]:
+    """
+    Returns a list of files in a folder, which has increasing timesteps.  
+    """
+    correct_files = []
+    cbct_files = get_sorted_unique_list_of_files(folder_path)
+    cur_timestep = -10e10
+    for file_name in cbct_files:
+        file_timestep = extract_timestep(file_name)
+        if cur_timestep < file_timestep:
+            correct_files.append(os.path.join(folder_path, file_name))
+            cur_timestep = file_timestep
+    return correct_files
+
+
+def get_patient_tensor(patient_number: str):
+    median_file = f'{MEDIAN_DIR}/median_image_p{patient_number}.nii'
+    median_img = load_img(median_file)
+    if median_img.shape != IMG_SHAPE:
+        print('Patient', patient_number, 'has wrong shape')
+        return None 
+    patient_dir = os.path.join(REGISTERED_DIR, patient_number)
+    patient_folders = [os.path.join(patient_dir, f) for f in os.listdir(patient_dir)]
+    patient_files = []
+    for folder in patient_folders:
+        patient_files.extend(get_correct_files_in_folder(folder))
+    if len(patient_files) < 10:
+        print('Patient', patient_number, 'has less than 10 imgs')
+        return None 
+    return np.array([load_img(file) for file in patient_files[:10]])
+    
+
+def load_img(img_path: str) -> np.array:
+    """
+    Loads NIfTI image and converts to numpy array
+    """
+    nii_img = nib.load(img_path)
+    img_arr = nii_img.get_fdata()
+    return img_arr
+
+
+def save_data():
+    all_dat = []
+    for patient in os.listdir(REGISTERED_DIR)[:30]:
+        print(patient)
+        t = get_patient_tensor(patient)
+        if t is not None:
+            all_dat.append(t)
+    data_size = len(all_dat)
+    print('Number of sequences in dataset:', data_size)
+    all_dat = np.array(all_dat, dtype=np.float32)
+    # min-max scaling
+    all_dat -= np.amin(all_dat, axis=(2,3,4), keepdims=True)
+    all_dat /= np.amax(all_dat, axis=(2,3,4), keepdims=True)
+    np.random.seed(0)
+    train_length = int(data_size * 0.9)
+    print('train rows:', train_length)
+    print('test rows:', data_size-train_length)
+    rand_idx = np.random.permutation(data_size)
+    trn_dat = all_dat[rand_idx[:train_length]]
+    tst_dat = all_dat[rand_idx[train_length:]]
+    np.save(os.path.join(PROJECT_DIR, "trn_dat.npy"), trn_dat)
+    np.save(os.path.join(PROJECT_DIR, "tst_dat.npy"), tst_dat)
+
+
+
