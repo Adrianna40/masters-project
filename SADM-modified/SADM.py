@@ -16,9 +16,9 @@ assert os.path.isdir(RESULT_DIR), f"{RESULT_DIR} is not a directory."
 def train():
     device = torch.device("cuda")
     n_epoch = 1
-    batch_size = 3
+    batch_size = 1
     image_size = (64, 384, 384)
-    num_frames = 11
+    num_frames = 9
 
     # DDPM hyperparameters
     n_T = 400  # 500
