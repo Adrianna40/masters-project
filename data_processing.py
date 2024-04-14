@@ -1,7 +1,10 @@
 import os
 from typing import List
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import nibabel as nib
 import numpy as np
+import scipy.ndimage
 
 
 DATA_DIR = "/media/7tb_encrypted/maltes_project"
@@ -9,6 +12,7 @@ PROJECT_DIR = "/media/7tb_encrypted/adriannas_project"
 REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
 MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
 IMG_SHAPE = (384, 384, 64)
+ZOOM = 0.3 
 
 def extract_id(file_name: str) -> int:
     """
@@ -77,10 +81,14 @@ def get_patient_tensor(patient_number: str):
     patient_files = []
     for folder in patient_folders:
         patient_files.extend(get_correct_files_in_folder(folder))
-    if len(patient_files) < 10:
-        print('Patient', patient_number, 'has less than 10 imgs')
+    if len(patient_files) < 20:
+        print('Patient', patient_number, 'has less than 20 imgs')
         return None 
-    return np.array([load_img(file) for file in patient_files[:10]])
+    selected_frames_indices = [0, 4, 9, -1]
+    selected_images = [patient_files[i] for i in selected_frames_indices]   # chosing 1, 5, 10 and the last img 
+    imgs = [load_img(file) for file in selected_images[:10]]  # loading images 
+    down_imgs = [scipy.ndimage.zoom(img, ZOOM, order=1) for img in imgs]
+    return np.array(down_imgs)
     
 
 def load_img(img_path: str) -> np.array:
@@ -90,6 +98,36 @@ def load_img(img_path: str) -> np.array:
     nii_img = nib.load(img_path)
     img_arr = nii_img.get_fdata()
     return img_arr
+
+
+def validate_downscaling_with_plot(img_path, zoom):
+    original = load_img(img_path)
+    downscale = scipy.ndimage.zoom(original, zoom, order=1)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    axes[0].imshow(original[:, :, original.shape[2] // 2], cmap='gray')
+    axes[0].set_title('Original')
+    axes[0].axis('off')
+    # Plot slice of downscaled image
+    axes[1].imshow(downscale[:, :, downscale.shape[2] // 2], cmap='gray')
+    axes[1].set_title('Downscaled')
+    axes[1].axis('off')
+    if type(zoom) == list: 
+        file_name = f'{PROJECT_DIR}/downscaling_{zoom[0]}_{zoom[1]}_{zoom[2]}.jpg'
+    else:
+        file_name = f'{PROJECT_DIR}/downscaling_{zoom}.jpg'
+    plt.savefig(file_name, pad_inches=0)
+
+
+def plot_patient_gif(folder_path, zoom):
+    imgs_paths = get_correct_files_in_folder(folder_path)
+    imgs = [load_img(img_path) for img_path in imgs_paths]
+    down_imgs = [scipy.ndimage.zoom(img, zoom, order=1) for img in imgs]
+    fig, ax = plt.subplots()
+    ax.axis('off')
+    def update(frame):
+        ax.imshow(down_imgs[frame][:, :, down_imgs[0].shape[2] // 2], cmap='gray')
+    ani = FuncAnimation(fig, update, frames=len(down_imgs), interval=200)
+    ani.save(f'{PROJECT_DIR}/sequence_{zoom}.gif', writer='pillow', fps=5)
 
 
 def save_data():
@@ -102,6 +140,7 @@ def save_data():
     data_size = len(all_dat)
     print('Number of sequences in dataset:', data_size)
     all_dat = np.array(all_dat, dtype=np.float32)
+    print('Data shape', all_dat.shape)
     # min-max scaling
     all_dat -= np.amin(all_dat, axis=(2,3,4), keepdims=True)
     all_dat /= np.amax(all_dat, axis=(2,3,4), keepdims=True)
@@ -115,5 +154,5 @@ def save_data():
     np.save(os.path.join(PROJECT_DIR, "trn_dat.npy"), trn_dat)
     np.save(os.path.join(PROJECT_DIR, "tst_dat.npy"), tst_dat)
 
-
-
+# patient_path = f'{REGISTERED_DIR}/0/0'
+save_data()
