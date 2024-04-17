@@ -12,7 +12,7 @@ PROJECT_DIR = "/media/7tb_encrypted/adriannas_project"
 REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
 MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
 IMG_SHAPE = (384, 384, 64)
-ZOOM = 0.3 
+ZOOM = [1/3, 1/3, 0.5] 
 
 def extract_id(file_name: str) -> int:
     """
@@ -112,7 +112,7 @@ def validate_downscaling_with_plot(img_path, zoom):
     axes[1].set_title('Downscaled')
     axes[1].axis('off')
     if type(zoom) == list: 
-        file_name = f'{PROJECT_DIR}/downscaling_{zoom[0]}_{zoom[1]}_{zoom[2]}.jpg'
+        file_name = f'0.5, 1/3, 1/3{PROJECT_DIR}/downscaling_{zoom[0]}_{zoom[1]}_{zoom[2]}.jpg'
     else:
         file_name = f'{PROJECT_DIR}/downscaling_{zoom}.jpg'
     plt.savefig(file_name, pad_inches=0)

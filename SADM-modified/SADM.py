@@ -16,13 +16,13 @@ assert os.path.isdir(RESULT_DIR), f"{RESULT_DIR} is not a directory."
 def train():
     device = torch.device("cuda")
     n_epoch = 1
-    batch_size = 1
-    image_size = (19, 115, 115)
+    batch_size = 3
+    image_size = (32, 128, 128)
     num_frames = 3
 
     # DDPM hyperparameters
     n_T = 400  # 500
-    n_feat = 8  # 128 ok, 256 better (but slower)
+    n_feat = 128 # 128 ok, 256 better (but slower)
     lrate = 1e-4
 
     # ViViT hyperparameters
@@ -57,7 +57,9 @@ def train():
         for x, x_prev in pbar:
             optim.zero_grad()
             x = x.to(device)
+            print(x.shape)
             x_prev = x_prev.to(device)
+            print(x_prev.shape)
             loss = ddpm(x, x_prev)
             loss.backward()
             if loss_ema is None:
@@ -70,7 +72,7 @@ def train():
         ddpm.eval()
         with torch.no_grad():
             x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
-            np.save(f"{RESULT_DIR}/x_gen_{ep}.npy", x_gen)
+            np.save(f"{RESULT_DIR}/x_gen_{ep}.npy", x_gen.cpu())
             np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
 
 
