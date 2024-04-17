@@ -9,6 +9,7 @@ import scipy.ndimage
 
 DATA_DIR = "/media/7tb_encrypted/maltes_project"
 PROJECT_DIR = "/media/7tb_encrypted/adriannas_project"
+RESULTS_DIR = os.path.join(PROJECT_DIR, 'results')
 REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
 MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
 IMG_SHAPE = (384, 384, 64)
@@ -118,6 +119,27 @@ def validate_downscaling_with_plot(img_path, zoom):
         file_name = f'{PROJECT_DIR}/downscaling_{zoom}.jpg'
     plt.savefig(file_name, pad_inches=0)
 
+def plot_slice_from_npy(npy_file):
+    img = np.load(npy_file)[0][0]
+    print(img.shape)
+    img = np.transpose(img, (1, 2, 0))
+    fig, ax = plt.subplots()
+    ax.axis('off')
+    ax.imshow(img[:, :, img.shape[2] // 2], cmap='gray')
+    file_name = npy_file.split('/')[-1].split('.')[0]
+    plt.savefig(f'{RESULTS_DIR}/{file_name}.jpg')
+
+def plot_slices_sequence_from_numpy(npy_file):
+    sequence = np.load(npy_file)
+    print(sequence.shape)
+    sequence = np.transpose(sequence, (1, 2, 0, 4, 5, 3))[0][0]
+    file_name = npy_file.split('/')[-1].split('.')[0]
+    fig, ax = plt.subplots()
+    ax.axis('off')
+    def update(frame):
+        ax.imshow(sequence[frame][:, :, sequence[0].shape[2] // 2], cmap='gray')
+    ani = FuncAnimation(fig, update, frames=sequence.shape[0], interval=200)
+    ani.save(f'{RESULTS_DIR}/{file_name}.gif', writer='pillow', fps=5)
 
 def plot_patient_gif(folder_path, zoom):
     imgs_paths = get_correct_files_in_folder(folder_path)
@@ -155,5 +177,5 @@ def save_data():
     np.save(os.path.join(PROJECT_DIR, "trn_dat.npy"), trn_dat)
     np.save(os.path.join(PROJECT_DIR, "tst_dat.npy"), tst_dat)
 
-# patient_path = f'{REGISTERED_DIR}/0/0'
+
 save_data()
