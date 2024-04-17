@@ -6,16 +6,23 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 import numpy as np
 import os
+import wandb
+import yaml
 
 DATA_DIR = "/media/7tb_encrypted/adriannas_project"
-RESULT_DIR = "/media/7tb_encrypted/adriannas_project"
+RESULT_DIR = "/media/7tb_encrypted/adriannas_project/results"
 
 assert os.path.isdir(DATA_DIR), f"{DATA_DIR} is not a directory."
 assert os.path.isdir(RESULT_DIR), f"{RESULT_DIR} is not a directory."
 
 def train():
+    with open('local_config.yml', 'r') as f:
+        local_user_config = yaml.safe_load(f)
+    project = local_user_config['project']
+    entity = local_user_config['entity']
+    wandb.init()
     device = torch.device("cuda")
-    n_epoch = 1
+    n_epoch = 20
     batch_size = 3
     image_size = (32, 128, 128)
     num_frames = 3
@@ -32,8 +39,8 @@ def train():
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=5)
 
     valid_loader = DataLoader(ACDCDataset(data_dir=DATA_DIR, split="tst"), batch_size=batch_size, shuffle=False, num_workers=1)
-    x_val, x_prev_val = next(iter(valid_loader))
-    x_prev_val = x_prev_val.to(device)
+    # x_val, x_prev_val = next(iter(valid_loader))
+    # x_prev_val = x_prev_val.to(device)
 
 
     vivit_model = ViViT(image_size, patch_size, num_frames)
@@ -53,27 +60,37 @@ def train():
         optim.param_groups[0]['lr'] = lrate*(1-ep/n_epoch)
 
         pbar = tqdm(train_loader)
-        loss_ema = None
+        loss_epoch = []
         for x, x_prev in pbar:
             optim.zero_grad()
             x = x.to(device)
-            print(x.shape)
             x_prev = x_prev.to(device)
-            print(x_prev.shape)
             loss = ddpm(x, x_prev)
             loss.backward()
-            if loss_ema is None:
-                loss_ema = loss.item()
-            else:
-                loss_ema = 0.95 * loss_ema + 0.05 * loss.item()
-            pbar.set_description(f"loss: {loss_ema:.4f}")
+            loss_epoch.append(loss.item())
+            pbar.set_description(f"loss: {loss.item():.4f}")
             optim.step()
 
         ddpm.eval()
+        vbar = tqdm(valid_loader)
+        loss_val_epoch = []
         with torch.no_grad():
-            x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
-            np.save(f"{RESULT_DIR}/x_gen_{ep}.npy", x_gen.cpu())
-            np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
+            for x_val, x_prev_val in vbar:
+                x_val = x_val.to(device)
+                x_prev_val = x_prev_val.to(device)
+                val_loss = ddpm(x_val, x_prev_val)
+                vbar.set_description(f'val loss: {val_loss.item():.4f}')
+                loss_val_epoch.append(val_loss.item())
+            if ep%5 == 0:   # once in every 5 epopchs sample 1 batch from validation 
+                x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
+                np.save(f"{RESULT_DIR}/x_gen_{ep}.npy", x_gen.cpu())
+                np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
+        train_loss = np.array(loss_epoch).mean()
+        val_loss = np.array(loss_val_epoch).mean()
+        print('Avg Train Loss', train_loss)
+        print('Avg Val Loss', val_loss)
+        wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss}
+    ddpm.save(ddpm.state_dict(), f'{RESULT_DIR}/model.pth')
 
 
 if __name__=="__main__":

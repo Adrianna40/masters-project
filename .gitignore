@@ -1,2 +1,9 @@
 *.ipynb
 .DS_Store
+local_config.yml
+adaenv/
+median_images/
+registered/
+*__pycache__*
+*.swp
+wandb/

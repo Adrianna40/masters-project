@@ -13,6 +13,7 @@ REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
 MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
 IMG_SHAPE = (384, 384, 64)
 ZOOM = [1/3, 1/3, 0.5] 
+TRAINDATA_RATIO = 0.95
 
 def extract_id(file_name: str) -> int:
     """
@@ -132,7 +133,7 @@ def plot_patient_gif(folder_path, zoom):
 
 def save_data():
     all_dat = []
-    for patient in os.listdir(REGISTERED_DIR)[:30]:
+    for patient in os.listdir(REGISTERED_DIR):
         print(patient)
         t = get_patient_tensor(patient)
         if t is not None:
@@ -145,7 +146,7 @@ def save_data():
     all_dat -= np.amin(all_dat, axis=(2,3,4), keepdims=True)
     all_dat /= np.amax(all_dat, axis=(2,3,4), keepdims=True)
     np.random.seed(0)
-    train_length = int(data_size * 0.9)
+    train_length = int(data_size * TRAINDATA_RATIO)
     print('train rows:', train_length)
     print('test rows:', data_size-train_length)
     rand_idx = np.random.permutation(data_size)
