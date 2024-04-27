@@ -20,7 +20,7 @@ def train():
         local_user_config = yaml.safe_load(f)
     project = local_user_config['project']
     entity = local_user_config['entity']
-    wandb.init()
+    wandb.init(project, entity, run_id='qqj9g1q8')
     device = torch.device("cuda")
     n_epoch = 500
     batch_size = 3
@@ -52,7 +52,7 @@ def train():
 
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
-    for ep in range(n_epoch):
+    for ep in range(599, 499+n_epoch):
         print(f'epoch {ep}')
         ddpm.train()
 
@@ -86,13 +86,13 @@ def train():
         print('Avg Train Loss', train_loss)
         print('Avg Val Loss', val_loss)
         wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss})
-        if ep in [0, 200, 300, 400]:
+        if ep in [600, 700, 800, 900]:
             torch.save(ddpm.state_dict(), f'{RESULT_DIR}/model256_ep{ep}.pth')
     with torch.no_grad():
         x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
         np.save(f"{RESULT_DIR}/x_gen_{ep}.npy", x_gen.cpu())
         np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
-    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/model256.pth')
+    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/model256_ep{ep}.pth')
 
 
 if __name__=="__main__":
