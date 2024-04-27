@@ -14,7 +14,7 @@ REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
 MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
 IMG_SHAPE = (384, 384, 64)
 ZOOM = [1/3, 1/3, 0.5] 
-TRAINDATA_RATIO = 0.95
+TRAINDATA_RATIO = 0.90
 
 def extract_id(file_name: str) -> int:
     """
