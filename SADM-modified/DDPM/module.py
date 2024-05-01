@@ -89,7 +89,7 @@ class EmbedFC(nn.Module):
 
 
 class ContextUnet(nn.Module):
-    def __init__(self, in_channels, n_feat=256, in_shape=(1,32,128,128)):
+    def __init__(self, in_channels, n_feat=256, in_shape=(1,32,128,128), num_frames=1):
         super(ContextUnet, self).__init__()
 
         self.in_channels = in_channels
@@ -98,7 +98,7 @@ class ContextUnet(nn.Module):
 
         self.init_conv = ResidualConvBlock(in_channels, n_feat, is_res=True)
 
-        self.down1 = UnetDown(n_feat+1, n_feat)
+        self.down1 = UnetDown(n_feat+num_frames, n_feat)
         self.down2 = UnetDown(n_feat, 2 * n_feat)
 
         self.to_vec = nn.Sequential(nn.AvgPool3d((8, 32, 32)), nn.GELU())
@@ -117,7 +117,7 @@ class ContextUnet(nn.Module):
         self.up1 = UnetUp(4 * n_feat, n_feat)
         self.up2 = UnetUp(2 * n_feat, n_feat)
         self.out = nn.Sequential(
-            nn.Conv3d(2 * n_feat+1, n_feat, 3, 1, 1),
+            nn.Conv3d(2 * n_feat+num_frames, n_feat, 3, 1, 1),
             nn.GroupNorm(8, n_feat),
             nn.ReLU(),
             nn.Conv3d(n_feat, self.in_channels, 3, 1, 1),
