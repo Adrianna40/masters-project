@@ -6,6 +6,7 @@ import numpy as np
 import os
 import wandb
 import yaml
+import sys
 
 sys.path.insert(0, 'SADM-modified')
 from DDPM import DDPM, ContextUnet
@@ -28,9 +29,9 @@ def train():
     n_epoch = 500
     batch_size = 3
     image_size = (32, 128, 128)
-    num_frames = 3
+    num_frames = 19
 
-    lrate = 1e-4
+    lrate = 1e-5
 
     # ViViT hyperparameters
     patch_size = (8, 32, 32)
@@ -45,6 +46,7 @@ def train():
 
     vivit_model = ViViT(image_size, patch_size, num_frames)
     vivit_model.to(device)
+    loss_func = nn.MSELoss()
 
     optim = torch.optim.Adam(vivit_model.parameters(), lr=lrate)
 
@@ -61,7 +63,10 @@ def train():
             optim.zero_grad()
             x = x.to(device)
             x_prev = x_prev.to(device)
-            loss = nn.MSELoss(x, vivit_model(x_prev))
+            out = vivit_model(x_prev)
+            # print(out.shape)
+            # print(x.shape)
+            loss = loss_func(out, x)
             loss.backward()
             loss_epoch.append(loss.item())
             pbar.set_description(f"loss: {loss.item():.4f}")
@@ -74,7 +79,8 @@ def train():
             for x_val, x_prev_val in vbar:
                 x_val = x_val.to(device)
                 x_prev_val = x_prev_val.to(device)
-                val_loss = nn.MSELoss(x_val, vivit_model(x_prev_val))
+                x_gen = vivit_model(x_prev_val)
+                val_loss = loss_func(x_gen, x_val)
                 vbar.set_description(f'val loss: {val_loss.item():.4f}')
                 loss_val_epoch.append(val_loss.item()) 
         train_loss = np.array(loss_epoch).mean()
@@ -82,12 +88,13 @@ def train():
         print('Avg Train Loss', train_loss)
         print('Avg Val Loss', val_loss)
         wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss})
-        if ep in [200, 300, 400]:
-            torch.save(vivit_model.state_dict(), f'{RESULT_DIR}/vivit_ep{ep}.pth')
+        if ep % 100 == 0:
+            np.save(f'{RESULT_DIR}/x_vivit2_ep{ep}.npy', x_gen.cpu())
+            torch.save(vivit_model.state_dict(), f'{RESULT_DIR}/vivit2_ep{ep}.pth')
     with torch.no_grad():
         x_gen = vivit_model(x_prev_val)
-        np.save(f"{RESULT_DIR}/x_vivit_{ep}.npy", x_gen.cpu())
-    torch.save(vivit_model.state_dict(), f'{RESULT_DIR}/vivit_ep{ep}.pth')
+        np.save(f"{RESULT_DIR}/x_vivit2_{ep}.npy", x_gen.cpu())
+    torch.save(vivit_model.state_dict(), f'{RESULT_DIR}/vivit2_ep{ep}.pth')
 
 
 if __name__=="__main__":
