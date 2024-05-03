@@ -41,11 +41,10 @@ def plot_slice_from_npy(npy_file):
     file_name = npy_file.split('/')[-1].split('.')[0]
     plt.savefig(f'{RESULT_DIR}/{file_name}.jpg')
 
-plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_499.npy")
+plot_slice_from_npy(f"{RESULT_DIR}/x_pre_vivit_499.npy")
 plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep300.npy")
 plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep400.npy")
 plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep500.npy")
-
 plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep100.npy")
 plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep0.npy")
 

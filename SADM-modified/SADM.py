@@ -28,7 +28,7 @@ def train():
     num_frames = 19
 
     # DDPM hyperparameters
-    n_T = 400  # 500
+    n_T = 1000  # 500
     n_feat = 128 # 128 ok, 256 better (but slower)
     lrate = 1e-5
 
@@ -44,11 +44,11 @@ def train():
 
 
     vivit_model = ViViT(image_size, patch_size, num_frames)
-    vivit_model.load_state_dict(torch.load(f'{RESULT_DIR}/vivit2_ep300.pth'))
+    # vivit_model.load_state_dict(torch.load(f'{RESULT_DIR}/vivit2_ep300.pth'))
     nn_model = ContextUnet(in_channels=1, n_feat=n_feat, in_shape=(1, *image_size))
 
     ddpm = DDPM(vivit_model=vivit_model, nn_model=nn_model,
-                betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
+                betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=1.)
     ddpm.to(device)
 
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
@@ -88,12 +88,12 @@ def train():
         print('Avg Val Loss', val_loss)
         wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss})
         if ep in [600, 700, 800, 900]:
-            torch.save(ddpm.state_dict(), f'{RESULT_DIR}/model_pre_vivit_ep{ep}.pth')
+            torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_drop_context_ep{ep}.pth')
     with torch.no_grad():
         x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
-        np.save(f"{RESULT_DIR}/x_pre_vivit_{ep}.npy", x_gen.cpu())
+        np.save(f"{RESULT_DIR}/x_ddpm_drop_context_{ep}.npy", x_gen.cpu())
         # np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
-    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/model_pre_vivit_ep{ep}.pth')
+    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_drop_context_ep{ep}.pth')
 
 
 if __name__=="__main__":
