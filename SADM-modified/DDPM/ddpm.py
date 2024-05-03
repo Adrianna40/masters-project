@@ -122,7 +122,7 @@ class DDPM(nn.Module):
     
 
 class SingleDDPM(nn.Module):
-    def __init__(self, vivit_model, nn_model, betas, n_T, device, drop_prob=0.1):
+    def __init__(self, nn_model, betas, n_T, device, drop_prob=0.1):
         super(SingleDDPM, self).__init__()
         self.nn_model = nn_model.to(device)
 
