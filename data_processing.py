@@ -1,5 +1,6 @@
 import os
 from typing import List
+import yaml
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import nibabel as nib
@@ -13,8 +14,13 @@ RESULTS_DIR = os.path.join(PROJECT_DIR, 'results')
 REGISTERED_DIR= os.path.join(DATA_DIR, "anon_images_aligned")
 MEDIAN_DIR = os.path.join(DATA_DIR, "median_images")
 IMG_SHAPE = (384, 384, 64)
+TARGET_SHAPE = (128, 128, 32)
 ZOOM = [1/3, 1/3, 0.5] 
 TRAINDATA_RATIO = 0.90
+
+with open('./outliers.yaml', 'r') as file:
+    yaml_data = yaml.safe_load(file)
+outliers_list = yaml_data['files']
 
 def extract_id(file_name: str) -> int:
     """
@@ -41,7 +47,7 @@ def extract_timestep(input_string: str) -> int:
 def get_sorted_unique_list_of_files(folder_path: str) -> List[str]:
     """
     This function gets all cbct files from folder and sorts them by id.
-    In case there are 2 files with the same id, it takes the one with smaller timestep.
+    In case there are 2 files with the same id, it takes the one with bigger timestep.
     """
     cbct_files = [f for f in os.listdir(folder_path) if f.startswith("cbct") and f.endswith(".nii.gz")]
     sorted_filenames = sorted(cbct_files, key=extract_id)
@@ -52,32 +58,35 @@ def get_sorted_unique_list_of_files(folder_path: str) -> List[str]:
         if idx not in unique_files:
             unique_files[idx] = filename
         else:
-            if timestep < extract_timestep(unique_files[idx]):
+            if timestep > extract_timestep(unique_files[idx]):
                 unique_files[idx] = filename
     return list(unique_files.values())
 
 
 def get_correct_files_in_folder(folder_path: str) -> List[str]:
     """
-    Returns a list of files in a folder, which has increasing timesteps.  
+    Returns a list of files in a folder, which has increasing timesteps and are not on outliers list.
     """
     correct_files = []
     cbct_files = get_sorted_unique_list_of_files(folder_path)
     cur_timestep = -10e10
     for file_name in cbct_files:
-        file_timestep = extract_timestep(file_name)
-        if cur_timestep < file_timestep:
-            correct_files.append(os.path.join(folder_path, file_name))
-            cur_timestep = file_timestep
+        if file_name not in outliers_list:
+            file_timestep = extract_timestep(file_name)
+            if cur_timestep < file_timestep:
+                correct_files.append(os.path.join(folder_path, file_name))
+                cur_timestep = file_timestep
+        else:
+            print('discarded', file_name)
     return correct_files
 
 
 def get_patient_tensor(patient_number: str):
-    median_file = f'{MEDIAN_DIR}/median_image_p{patient_number}.nii'
-    median_img = load_img(median_file)
-    if median_img.shape != IMG_SHAPE:
-        print('Patient', patient_number, 'has wrong shape')
-        return None 
+    # median_file = f'{MEDIAN_DIR}/median_image_p{patient_number}.nii'
+    # median_img = load_img(median_file)
+    # if median_img.shape != IMG_SHAPE:
+      #  print('Patient', patient_number, 'has wrong shape')
+       # return None 
     patient_dir = os.path.join(REGISTERED_DIR, patient_number)
     patient_folders = [os.path.join(patient_dir, f) for f in os.listdir(patient_dir)]
     patient_files = []
@@ -88,8 +97,10 @@ def get_patient_tensor(patient_number: str):
         return None 
     selected_frames_indices = [0, 4, 9, -1]
     selected_images = [patient_files[i] for i in selected_frames_indices]   # chosing 1, 5, 10 and the last img 
-    imgs = [load_img(file) for file in selected_images[:10]]  # loading images 
-    down_imgs = [scipy.ndimage.zoom(img, ZOOM, order=1) for img in imgs]
+    imgs = [load_img(file) for file in selected_images]  # loading images 
+    orginal_shape = imgs[0].shape
+    zoom = (orginal_shape[0]/ TARGET_SHAPE[0], orginal_shape[1]/ TARGET_SHAPE[1], orginal_shape[2]/ TARGET_SHAPE[2])
+    down_imgs = [scipy.ndimage.zoom(img, zoom, order=1) for img in imgs]
     return np.array(down_imgs)
     
 
@@ -171,6 +182,8 @@ def save_data():
     train_length = int(data_size * TRAINDATA_RATIO)
     print('train rows:', train_length)
     print('test rows:', data_size-train_length)
+    seed_value = 42
+    np.random.seed(seed_value)
     rand_idx = np.random.permutation(data_size)
     trn_dat = all_dat[rand_idx[:train_length]]
     tst_dat = all_dat[rand_idx[train_length:]]
