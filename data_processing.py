@@ -22,6 +22,13 @@ with open('./outliers.yaml', 'r') as file:
     yaml_data = yaml.safe_load(file)
     outliers_list = yaml_data['files']
 
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+    
 def extract_id(file_name: str) -> int:
     """
     Extracts id from file name (cbct<ID>_<TIMESTEP>.nii.gz)
@@ -170,10 +177,11 @@ def plot_patient_gif(folder_path, zoom):
 def save_data():
     all_dat = []
     for patient in os.listdir(REGISTERED_DIR):
-        print(patient)
-        t = get_patient_tensor(patient)
-        if t is not None:
-            all_dat.append(t)
+        if is_number(patient):
+            print(patient)
+            t = get_patient_tensor(patient)
+            if t is not None:
+                all_dat.append(t)
     data_size = len(all_dat)
     print('Number of sequences in dataset:', data_size)
     all_dat = np.array(all_dat, dtype=np.float32)
