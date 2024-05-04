@@ -20,7 +20,7 @@ TRAINDATA_RATIO = 0.90
 
 with open('./outliers.yaml', 'r') as file:
     yaml_data = yaml.safe_load(file)
-outliers_list = yaml_data['files']
+    outliers_list = yaml_data['files']
 
 def extract_id(file_name: str) -> int:
     """
@@ -65,19 +65,16 @@ def get_sorted_unique_list_of_files(folder_path: str) -> List[str]:
 
 def get_correct_files_in_folder(folder_path: str) -> List[str]:
     """
-    Returns a list of files in a folder, which has increasing timesteps and are not on outliers list.
+    Returns a list of files in a folder, which has increasing timesteps
     """
     correct_files = []
     cbct_files = get_sorted_unique_list_of_files(folder_path)
     cur_timestep = -10e10
     for file_name in cbct_files:
-        if file_name not in outliers_list:
-            file_timestep = extract_timestep(file_name)
-            if cur_timestep < file_timestep:
-                correct_files.append(os.path.join(folder_path, file_name))
-                cur_timestep = file_timestep
-        else:
-            print('discarded', file_name)
+        file_timestep = extract_timestep(file_name)
+        if cur_timestep < file_timestep:
+            correct_files.append(os.path.join(folder_path, file_name))
+            cur_timestep = file_timestep
     return correct_files
 
 
@@ -91,7 +88,13 @@ def get_patient_tensor(patient_number: str):
     patient_folders = [os.path.join(patient_dir, f) for f in os.listdir(patient_dir)]
     patient_files = []
     for folder in patient_folders:
-        patient_files.extend(get_correct_files_in_folder(folder))
+        folder_correct_files = get_correct_files_in_folder(folder)
+        len_before = len(folder_correct_files)
+        folder_correct_files = [f for f in folder_correct_files if f not in outliers_list]
+        len_after = len(folder_correct_files)
+        if len_after != len_before:
+            print(patient_number, 'removed outliers')
+        patient_files.extend(folder_correct_files)
     if len(patient_files) < 20:
         print('Patient', patient_number, 'has less than 20 imgs')
         return None 
