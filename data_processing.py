@@ -109,7 +109,7 @@ def get_patient_tensor(patient_number: str):
     selected_images = [patient_files[i] for i in selected_frames_indices]   # chosing 1, 5, 10 and the last img 
     imgs = [load_img(file) for file in selected_images]  # loading images 
     orginal_shape = imgs[0].shape
-    zoom = (orginal_shape[0]/ TARGET_SHAPE[0], orginal_shape[1]/ TARGET_SHAPE[1], orginal_shape[2]/ TARGET_SHAPE[2])
+    zoom = tuple([TARGET_SHAPE[i]/orginal_shape[i] for i in range(len(orginal_shape))])
     down_imgs = [scipy.ndimage.zoom(img, zoom, order=1) for img in imgs]
     return np.array(down_imgs)
     
