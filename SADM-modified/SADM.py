@@ -11,7 +11,7 @@ import yaml
 
 DATA_DIR = "/media/7tb_encrypted/adriannas_project"
 RESULT_DIR = "/media/7tb_encrypted/adriannas_project/results"
-
+ORIG_DATA = "/home/adrianna/masters-project/data"
 assert os.path.isdir(DATA_DIR), f"{DATA_DIR} is not a directory."
 assert os.path.isdir(RESULT_DIR), f"{RESULT_DIR} is not a directory."
 
@@ -22,15 +22,15 @@ def train():
     entity = local_user_config['entity']
     wandb.init(project, entity)
     device = torch.device("cuda")
-    n_epoch = 500
+    n_epoch = 300
     batch_size = 3
     image_size = (32, 128, 128)
-    num_frames = 3
+    num_frames = 12
 
     # DDPM hyperparameters
     n_T = 1000  # 500
     n_feat = 128 # 128 ok, 256 better (but slower)
-    lrate = 5e-5
+    lrate = 1e-4
 
     # ViViT hyperparameters
     patch_size = (8, 32, 32)
@@ -38,7 +38,7 @@ def train():
     dataset = ACDCDataset(data_dir=DATA_DIR, split="trn")
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=5)
 
-    valid_loader = DataLoader(ACDCDataset(data_dir=DATA_DIR, split="tst"), batch_size=batch_size, shuffle=False, num_workers=1)
+    valid_loader = DataLoader(ACDCDataset(data_dir=ORIG_DATA, split="tst"), batch_size=batch_size, shuffle=False, num_workers=1)
     # x_val, x_prev_val = next(iter(valid_loader))
     # x_prev_val = x_prev_val.to(device)
 
@@ -48,13 +48,13 @@ def train():
     nn_model = ContextUnet(in_channels=1, n_feat=n_feat, in_shape=(1, *image_size))
 
     ddpm = DDPM(vivit_model=vivit_model, nn_model=nn_model,
-                betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=1.)
-    ddpm.load_state_dict(torch.load(os.path.join(RESULT_DIR, 'ddpm_drop_context_ep200.pth')))
+                betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
+    # ddpm.load_state_dict(torch.load(os.path.join(RESULT_DIR, 'ddpm_drop_context_ep200.pth')))
     ddpm.to(device)
 
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
-    for ep in range(201, n_epoch):
+    for ep in range(n_epoch):
         print(f'epoch {ep}')
         ddpm.train()
 
@@ -89,12 +89,12 @@ def train():
         print('Avg Val Loss', val_loss)
         wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss})
         if ep in [100, 200, 300, 400]:
-            torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_drop_context_ep{ep}.pth')
+            torch.save(ddpm.state_dict(), f'{RESULT_DIR}/orig_ep{ep}.pth')
     with torch.no_grad():
         x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
-        np.save(f"{RESULT_DIR}/x_ddpm_drop_context_{ep}.npy", x_gen.cpu())
+        np.save(f"{RESULT_DIR}/x_orig_{ep}.npy", x_gen.cpu())
         # np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
-    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_drop_context_ep{ep}.pth')
+    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/orig_ep{ep}.pth')
 
 
 if __name__=="__main__":

@@ -1,9 +1,11 @@
 from matplotlib import pyplot as plt 
 import numpy as np 
+import nibabel as nib
 import torch 
 from torch.utils.data import DataLoader
 import os
 import sys 
+import scipy.ndimage
 
 sys.path.insert(0, 'SADM-modified')
 from DDPM import DDPM, ContextUnet
@@ -13,8 +15,10 @@ from ACDC_loader import ACDCDataset
 device = torch.device("cuda")
 RESULT_DIR = "/media/7tb_encrypted/adriannas_project/results"
 DATA_DIR = "/media/7tb_encrypted/adriannas_project"
-MODEL_PATH = os.path.join(RESULT_DIR, 'model256_ep998.pth')
-
+MODEL_PATH = os.path.join(RESULT_DIR, 'ddpm_drop_context_ep499.pth')
+IMG_SHAPE = (384, 384, 64)
+TARGET_SHAPE = (128, 128, 32)
+reversed_zoom = tuple([IMG_SHAPE[i]/TARGET_SHAPE[i] for i in range(len(IMG_SHAPE))])
 
 def compare_guide_w_samples(x_prev, model, guide_weights=[0.2, 1.0, 4.0]):
     num_plots = len(guide_weights)
@@ -41,62 +45,44 @@ def plot_slice_from_npy(npy_file):
     file_name = npy_file.split('/')[-1].split('.')[0]
     plt.savefig(f'{RESULT_DIR}/{file_name}.jpg')
 
-plot_slice_from_npy(f"{RESULT_DIR}/x_pre_vivit_499.npy")
-plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep300.npy")
-plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep400.npy")
-plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep500.npy")
-plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep100.npy")
-plot_slice_from_npy(f"{RESULT_DIR}/x_vivit2_ep0.npy")
+def load_to_nifti(npy_file_path):
+    arr = np.load(npy_file_path)[0][0]
+    arr = np.transpose(arr, (2, 1, 0))
+    arr = scipy.ndimage.zoom(arr, reversed_zoom, order=1)
+    nifti_img = nib.Nifti1Image(arr, affine=np.eye(4))
+    file_name = npy_file_path.split('/')[-1].split('.')[0]
+    nib.save(nifti_img, f'{RESULT_DIR}/{file_name}.nii.gz')
+
+# load_to_nifti(f"{RESULT_DIR}/x_ddpm_drop_context_499.npy")
+# npy_file_path = f"{RESULT_DIR}/x2_ddpm_drop_context_400.npy"
+# load_to_nifti(npy_file_path)
 
 valid_loader = DataLoader(ACDCDataset(data_dir=DATA_DIR, split="tst"), batch_size=1, shuffle=False, num_workers=1)
 image_size = (32, 128, 128)
 num_frames = 3
 
-n_T = 400  # 500
+n_T = 1000  # 500
 n_feat = 128 # 128 ok, 256 better (but slower)
 
 patch_size = (8, 32, 32)
-val_iter = iter(valid_loader)
-x, x_prev = next(val_iter)
-x_prev = x_prev.to(device)
-for ep in [200, 300, 400, 499]:
-    model_path = f'{RESULT_DIR}/vivit_ep{ep}.pth'
-    vivit_model = ViViT(image_size, patch_size, num_frames)
-    vivit_model.load_state_dict(torch.load(model_path))
-    vivit_model.to(device)
-    with torch.no_grad():
-        out = vivit_model(x_prev)
-    np.save(f'{RESULT_DIR}/vivit_gen_ep{ep}.npy', out.cpu())
-    plot_slice_from_npy(f'{RESULT_DIR}/vivit_gen_ep{ep}.npy')
-
 
 nn_model = ContextUnet(in_channels=1, n_feat=n_feat, in_shape=(1, *image_size))
-
+vivit_model = ViViT(image_size, patch_size, num_frames)
 ddpm = DDPM(vivit_model=vivit_model, nn_model=nn_model,
-            betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
+            betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=1)
 
 ddpm.load_state_dict(torch.load(MODEL_PATH))
 ddpm.to(device)
-guide_w = 1 
+guide_w = 0
 
 val_iter = iter(valid_loader)
 x, x_prev = next(val_iter)
+x, x_prev = next(val_iter)
 with torch.no_grad(): 
     x_prev = x_prev.to(device)
-    ddpm.vivit_model.to(device)
-    print(x_prev.device)
-    c = ddpm.vivit_model(x_prev)
-    np.save(f"{RESULT_DIR}/context2.npy", c.cpu())
-    plot_slice_from_npy(f"{RESULT_DIR}/context2.npy")
+    ddpm.to(device)
+    x_gen, x_gen_store = ddpm.sample(x_prev, device, guide_w=guide_w)
+    np.save(f"{RESULT_DIR}/x2_ddpm_drop_context_499.npy", x_gen.cpu())
+    plot_slice_from_npy(f"{RESULT_DIR}/x2_ddpm_drop_context_499.npy")
+    load_to_nifti(f"{RESULT_DIR}/x2_ddpm_drop_context_499.npy")
 
-for i in range(5): 
-    x, x_prev = next(val_iter)
-    x_prev = x_prev.to(device)
-    with torch.no_grad():
-        x_gen, _ = ddpm.sample(x_prev, device, guide_w)
-        np.save(f"{RESULT_DIR}/x_gen_1000epochs_{i}.npy", x_gen.cpu())
-        plot_slice_from_npy(f"{RESULT_DIR}/x_gen_1000epochs_{i}.npy")
-
-x, x_prev = next(val_iter)
-x_prev = x_prev.to(device)
-compare_guide_w_samples(x_prev, ddpm)
