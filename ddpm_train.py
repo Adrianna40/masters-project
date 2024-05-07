@@ -28,12 +28,12 @@ def train():
     n_epoch = 500
     batch_size = 3
     image_size = (32, 128, 128)
-    num_frames = 19
+    num_frames = 3
 
     # DDPM hyperparameters
-    n_T = 400  # 500
+    n_T = 1000  # 500
     n_feat = 128 # 128 ok, 256 better (but slower)
-    lrate = 1e-4
+    lrate = 5e-5
 
     dataset = ACDCDataset(data_dir=DATA_DIR, split="trn")
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=5)

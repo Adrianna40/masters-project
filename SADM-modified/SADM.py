@@ -23,14 +23,14 @@ def train():
     wandb.init(project, entity)
     device = torch.device("cuda")
     n_epoch = 500
-    batch_size = 1
+    batch_size = 3
     image_size = (32, 128, 128)
-    num_frames = 19
+    num_frames = 3
 
     # DDPM hyperparameters
     n_T = 1000  # 500
     n_feat = 128 # 128 ok, 256 better (but slower)
-    lrate = 1e-5
+    lrate = 5e-5
 
     # ViViT hyperparameters
     patch_size = (8, 32, 32)
@@ -49,11 +49,12 @@ def train():
 
     ddpm = DDPM(vivit_model=vivit_model, nn_model=nn_model,
                 betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=1.)
+    ddpm.load_state_dict(torch.load(os.path.join(RESULT_DIR, 'ddpm_drop_context_ep200.pth')))
     ddpm.to(device)
 
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
-    for ep in range(n_epoch):
+    for ep in range(201, n_epoch):
         print(f'epoch {ep}')
         ddpm.train()
 
@@ -87,7 +88,7 @@ def train():
         print('Avg Train Loss', train_loss)
         print('Avg Val Loss', val_loss)
         wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss})
-        if ep in [600, 700, 800, 900]:
+        if ep in [100, 200, 300, 400]:
             torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_drop_context_ep{ep}.pth')
     with torch.no_grad():
         x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
