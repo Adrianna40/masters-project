@@ -25,7 +25,7 @@ def train():
     n_epoch = 300
     batch_size = 3
     image_size = (32, 128, 128)
-    num_frames = 12
+    num_frames = 11
 
     # DDPM hyperparameters
     n_T = 1000  # 500
@@ -35,7 +35,7 @@ def train():
     # ViViT hyperparameters
     patch_size = (8, 32, 32)
 
-    dataset = ACDCDataset(data_dir=DATA_DIR, split="trn")
+    dataset = ACDCDataset(data_dir=ORIG_DATA, split="trn")
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=5)
 
     valid_loader = DataLoader(ACDCDataset(data_dir=ORIG_DATA, split="tst"), batch_size=batch_size, shuffle=False, num_workers=1)

@@ -7,3 +7,4 @@ registered/
 *__pycache__*
 *.swp
 wandb/
+data/
