@@ -25,7 +25,7 @@ def train():
     entity = local_user_config['entity']
     wandb.init(project, entity)
     device = torch.device("cuda")
-    n_epoch = 500
+    n_epoch = 1000
     batch_size = 3
     image_size = (32, 128, 128)
     num_frames = 3
@@ -44,12 +44,13 @@ def train():
 
     nn_model = ContextUnet(in_channels=1, n_feat=n_feat, in_shape=(1, *image_size), num_frames=num_frames)
     ddpm = SingleDDPM(nn_model=nn_model, betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
+    ddpm.load_state_dict(torch.load(f'{RESULT_DIR}/ddpm_single_ep499.pth'))
     ddpm.to(device)
 
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
 
 
-    for ep in range(n_epoch):
+    for ep in range(499, n_epoch):
         print(f'epoch {ep}')
         ddpm.train()
 
@@ -73,6 +74,7 @@ def train():
         loss_val_epoch = []
         with torch.no_grad():
             for x_val, x_prev_val in vbar:
+                # print(x_prev_val.shape)
                 x_val = x_val.to(device)
                 x_prev_val = x_prev_val.to(device)
                 val_loss = ddpm(x_val, x_prev_val)
@@ -86,7 +88,8 @@ def train():
         if ep % 100 == 0:
             torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_single_ep{ep}.pth')
     with torch.no_grad():
-        x_gen = ddpm.sample(x_prev_val, device, 0.4)
+        # print(x_prev_val.shape)
+        x_gen, _ = ddpm.sample(x_prev_val, device, 0.4)
         np.save(f"{RESULT_DIR}/x_ddpm_single_{ep}.npy", x_gen.cpu())
     torch.save(ddpm.state_dict(), f'{RESULT_DIR}/ddpm_single_ep{ep}.pth')
 

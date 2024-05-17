@@ -128,7 +128,7 @@ class ContextUnet(nn.Module):
         # context_mask says which samples to block the context on
 
         # mask out context if context_mask == 1
-        c = c.squeeze()
+        # c = c.squeeze(2)
         context_mask = context_mask[:, None, None, None, None]
         # print(c.shape)
         context_mask = context_mask.repeat(1, *c.shape[1:])

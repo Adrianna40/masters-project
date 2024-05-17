@@ -152,7 +152,7 @@ class SingleDDPM(nn.Module):
 
         # dropout context with some probability
         context_mask = torch.bernoulli(torch.zeros(x_prev.shape[0]) + self.drop_prob).to(self.device)
-
+        x_prev = x_prev.squeeze(2)
         # return MSE between added noise, and our predicted noise
         return self.loss_mse(noise, self.nn_model(x_t, x_prev, _ts / self.n_T, context_mask))
 
@@ -173,6 +173,7 @@ class SingleDDPM(nn.Module):
         context_mask = torch.zeros(x_prev.shape[0]).to(device)
 
         # double the batch
+        x_prev = x_prev.squeeze(2)
         x_prev = x_prev.repeat(2, 1, 1, 1, 1)
         context_mask = context_mask.repeat(2)
         context_mask[n_sample:] = 1.  # makes second half of batch context free

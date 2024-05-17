@@ -22,34 +22,40 @@ def train():
     entity = local_user_config['entity']
     wandb.init(project, entity)
     device = torch.device("cuda")
-    n_epoch = 300
+    n_epoch = 500
     batch_size = 3
     image_size = (32, 128, 128)
-    num_frames = 11
+    num_frames = 3
 
     # DDPM hyperparameters
     n_T = 1000  # 500
     n_feat = 128 # 128 ok, 256 better (but slower)
-    lrate = 1e-4
+    lrate = 5e-5
 
     # ViViT hyperparameters
     patch_size = (8, 32, 32)
 
-    dataset = ACDCDataset(data_dir=ORIG_DATA, split="trn")
+    dataset = ACDCDataset(data_dir=DATA_DIR, split="trn")
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=5)
 
-    valid_loader = DataLoader(ACDCDataset(data_dir=ORIG_DATA, split="tst"), batch_size=batch_size, shuffle=False, num_workers=1)
+    valid_loader = DataLoader(ACDCDataset(data_dir=DATA_DIR, split="tst"), batch_size=batch_size, shuffle=False, num_workers=1)
     # x_val, x_prev_val = next(iter(valid_loader))
     # x_prev_val = x_prev_val.to(device)
 
 
     vivit_model = ViViT(image_size, patch_size, num_frames)
+    # viivt_model.load_state_dict(f'{RESULT_DIR}/vivit_ep400.pth')
     # vivit_model.load_state_dict(torch.load(f'{RESULT_DIR}/vivit2_ep300.pth'))
     nn_model = ContextUnet(in_channels=1, n_feat=n_feat, in_shape=(1, *image_size))
 
     ddpm = DDPM(vivit_model=vivit_model, nn_model=nn_model,
                 betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
-    # ddpm.load_state_dict(torch.load(os.path.join(RESULT_DIR, 'ddpm_drop_context_ep200.pth')))
+    ddpm.load_state_dict(torch.load(os.path.join(RESULT_DIR, 'ddpm_drop_context_ep400.pth')))
+    nn_model = ddpm.nn_model
+    vivit_model.load_state_dict(torch.load(f'{RESULT_DIR}/vivit_ep400.pth'))
+    # vivit_model.load_state_dict(torch.load(f'{RESULT_DIR}/vivit2_ep300.pth'))
+    ddpm = DDPM(vivit_model=vivit_model, nn_model=nn_model,
+                betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
     ddpm.to(device)
 
     optim = torch.optim.Adam(ddpm.parameters(), lr=lrate)
@@ -89,12 +95,12 @@ def train():
         print('Avg Val Loss', val_loss)
         wandb.log({'epoch': ep, 'train_loss': train_loss, 'val_loss': val_loss})
         if ep in [100, 200, 300, 400]:
-            torch.save(ddpm.state_dict(), f'{RESULT_DIR}/orig_ep{ep}.pth')
+            torch.save(ddpm.state_dict(), f'{RESULT_DIR}/pretrained_combined_{ep}.pth')
     with torch.no_grad():
         x_gen, x_gen_store = ddpm.sample(x_prev_val, device, guide_w=0.2)
-        np.save(f"{RESULT_DIR}/x_orig_{ep}.npy", x_gen.cpu())
+        np.save(f"{RESULT_DIR}/x_pretrained_combined_{ep}.npy", x_gen.cpu())
         # np.save(f"{RESULT_DIR}/x_gen_store_{ep}.npy", x_gen_store)
-    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/orig_ep{ep}.pth')
+    torch.save(ddpm.state_dict(), f'{RESULT_DIR}/pretrained_combined_{ep}.pth')
 
 
 if __name__=="__main__":
