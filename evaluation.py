@@ -61,12 +61,13 @@ def load_to_nifti(npy_file_path):
     file_name = npy_file_path.split('/')[-1].split('.')[0]
     nib.save(nifti_img, f'{RESULT_DIR}/{file_name}.nii.gz')
 
-def evaluate_sampling(ddpm_instance, model_path, val_loader, guide_w=1.0,save_img=True):
+def evaluate_sampling(ddpm_instance, model_path, val_loader, guide_w=1.0):
     ddpm_instance.load_state_dict(torch.load(model_path))
     ddpm_instance.to(device)
     ddpm_instance.eval()
     loss = nn.MSELoss()
     losses = []
+    save_img = True 
     with torch.no_grad():
         vbar = tqdm(val_loader)
         for x, x_prev in vbar:
@@ -76,12 +77,13 @@ def evaluate_sampling(ddpm_instance, model_path, val_loader, guide_w=1.0,save_im
             batch_loss = loss(x, x_gen).cpu()
             print(batch_loss)
             losses.append(batch_loss)
-        if save_img:
-            file_name = model_path.split('/')[-1]
-            file_path = f'{RESULT_DIR}/ {file_name}.npy'
-            np.save(file_path, x_gen.cpu())
-            plot_slice_from_npy(file_path)
-            load_to_nifti(file_path)
+            if save_img:
+                file_name = model_path.split('/')[-1]
+                file_path = f'{RESULT_DIR}/ {file_name}_2.npy'
+                np.save(file_path, x_gen.cpu())
+                plot_slice_from_npy(file_path)
+                load_to_nifti(file_path)
+                save_img = False 
     return losses
             
 def evaluate_across_epochs(ddpm_instance, model_path_no_ep, val_loader, epochs):
@@ -94,7 +96,7 @@ def evaluate_across_epochs(ddpm_instance, model_path_no_ep, val_loader, epochs):
     for ep in epochs:
         model_path = f'{model_path_no_ep}{ep}.pth'
         losses = evaluate_sampling(ddpm_instance, model_path, val_loader)
-        wandb.log({'epoch': ep, 'val_sampling_loss': np.mean(losses)})
+        wandb.log({'epoch': ep, 'val_sampling_loss_avg': np.mean(losses), 'val_sampling_loss_std': np.std(losses), 'val_sampling_loss_list': losses})
         results[ep] = losses
     return results
 
@@ -123,19 +125,16 @@ ddpm = SingleDDPM(nn_model=nn_model,
              betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
 
 model_path_no_ep = f'{RESULT_DIR}/ddpm_single_ep'
-epochs = [100, 200, 300, 400, 500, 600, 700, 800, 900, 999]
+epochs = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 999]
 with open('local_config.yml', 'r') as f:
     local_user_config = yaml.safe_load(f)
 project = local_user_config['project']
 entity = local_user_config['entity']
 wandb.init(project, entity)
-results = {}
 for ep in epochs:
     model_path = f'{model_path_no_ep}{ep}.pth'
     losses = evaluate_sampling(ddpm, model_path, valid_loader)
-    wandb.log({'epoch': ep, 'val_sampling_loss': np.mean(losses)})
-
-print(results)
+    wandb.log({'epoch': ep, 'val_sampling_loss_avg': np.mean(losses), 'val_sampling_loss_std': np.std(losses), 'val_sampling_loss_list': losses})
 
 # ddpm.load_state_dict(torch.load(MODEL_PATH))
 # ddpm.to(device)
