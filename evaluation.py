@@ -72,8 +72,8 @@ def evaluate_sampling(ddpm_instance, model_path, val_loader, guide_w=1.0,save_im
         for x, x_prev in vbar:
             x = x.to(device)
             x_prev = x_prev.to(device)
-            x_gen = ddpm_instance.sample(x_prev, device, guide_w)
-            batch_loss = loss(x, x_gen)
+            x_gen, _ = ddpm_instance.sample(x_prev, device, guide_w)
+            batch_loss = loss(x, x_gen).cpu()
             print(batch_loss)
             losses.append(batch_loss)
         if save_img:
@@ -123,7 +123,7 @@ ddpm = SingleDDPM(nn_model=nn_model,
              betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
 
 model_path_no_ep = f'{RESULT_DIR}/ddpm_single_ep'
-epochs = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 999]
+epochs = [100, 200, 300, 400, 500, 600, 700, 800, 900, 999]
 with open('local_config.yml', 'r') as f:
     local_user_config = yaml.safe_load(f)
 project = local_user_config['project']
