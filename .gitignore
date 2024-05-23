@@ -8,3 +8,4 @@ registered/
 *.swp
 wandb/
 data/
+*.csv

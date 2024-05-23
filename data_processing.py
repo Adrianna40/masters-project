@@ -17,6 +17,8 @@ IMG_SHAPE = (384, 384, 64)
 TARGET_SHAPE = (128, 128, 32)
 ZOOM = [1/3, 1/3, 0.5] 
 TRAINDATA_RATIO = 0.90
+MIN_VALUE = -1000.0
+MAX_VALUE = 500.0
 
 with open('./outliers.yaml', 'r') as file:
     yaml_data = yaml.safe_load(file)
@@ -186,9 +188,12 @@ def save_data():
     print('Number of sequences in dataset:', data_size)
     all_dat = np.array(all_dat, dtype=np.float32)
     print('Data shape', all_dat.shape)
+    # clipping 
+    all_dat = np.clip(all_dat, MIN_VALUE, MAX_VALUE)
     # min-max scaling
-    all_dat -= np.amin(all_dat, axis=(2,3,4), keepdims=True)
-    all_dat /= np.amax(all_dat, axis=(2,3,4), keepdims=True)
+    all_dat = 2 * (all_dat - MIN_VALUE) / (MAX_VALUE - MIN_VALUE) - 1
+    print(np.min(all_dat))
+    print(np.max(all_dat))
     np.random.seed(0)
     train_length = int(data_size * TRAINDATA_RATIO)
     print('train rows:', train_length)
