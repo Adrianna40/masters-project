@@ -125,7 +125,7 @@ ddpm = SingleDDPM(nn_model=nn_model,
              betas=(1e-4, 0.02), n_T=n_T, device=device, drop_prob=0.1)
 
 model_path_no_ep = f'{RESULT_DIR}/ddpm_single_ep'
-epochs = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 999]
+epochs = [100, 200, 300, 400, 500, 600, 700, 800, 900, 999]
 with open('local_config.yml', 'r') as f:
     local_user_config = yaml.safe_load(f)
 project = local_user_config['project']
