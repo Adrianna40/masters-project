@@ -9,3 +9,4 @@ registered/
 wandb/
 data/
 *.csv
+*.png
